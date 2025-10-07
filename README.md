@@ -30,14 +30,8 @@ The purpose of this project is *educational* — to help learners understand ser
 
 ---
 
-## 🛠 Features (Phase 1 – Completed)
-
 ✅ User Authentication (Register, Login, Logout)  
 ✅ Modern glassmorphism-inspired UI (static prototype)  
 ✅ Responsive layout and simple UX  
-🔜 File upload and metadata management (Firebase Storage + Firestore)  
-🔜 Cloud deployment on Firebase Hosting  
-
----
-
-## 🧩 System Architecture (Concept
+✅ File upload and metadata management (Firebase Storage + Firestore)  
+✅ Cloud deployment on Firebase Hosting
