@@ -1,4 +1,4 @@
-## Cloud-Vault - A Cloud Storage Service
+# Cloud-Vault - A Cloud Storage Service
 
 Cloud Vault is a simplified cloud storage solution built using *Firebase*.
 It demonstrates the *core concepts of cloud computing* — authentication, database, storage, and hosting — in a beginner-friendly way.

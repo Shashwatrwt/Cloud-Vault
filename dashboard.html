@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Drive Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="container">
+    <h2>Welcome to your Drive</h2>
+
+    <div class="upload-section">
+      <input type="file" id="fileInput" />
+      <button id="uploadBtn">Upload</button>
+      <p id="uploadProgress"></p>
+    </div>
+
+    <h3>Your Files</h3>
+    <div id="filesList"></div>
+
+    <button id="logout">Logout</button>
+  </div>
+
+  <!-- Firebase + Supabase Script -->
+  <script type="module">
+    import { auth } from "./firebase.js";
+    import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+
+    const SUPABASE_URL = "Write your URL here";
+    const SUPABASE_ANON_KEY = "Write your key here,dont take mine lol";
+    // ----------------------------------------------------------------
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    const logoutBtn = document.getElementById("logout");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const fileInput = document.getElementById("fileInput");
+    const filesList = document.getElementById("filesList");
+    const uploadProgress = document.getElementById("uploadProgress");
+
+    let currentUser = null;
+
+    onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        window.location.href = "index.html";
+        return;
+      }
+      currentUser = user;
+      await listUserFiles(user.uid);
+    });
+
+
+    logoutBtn.addEventListener("click", async () => {
+      await signOut(auth);
+    });
+
+  
+    uploadBtn.addEventListener("click", async () => {
+      const file = fileInput.files[0];
+      if (!file) {
+        uploadProgress.textContent = "Please select a file first.";
+        return;
+      }
+      if (!currentUser) {
+        uploadProgress.textContent = "Please sign in.";
+        return;
+      }
+
+      const userId = currentUser.uid;
+      const filePath = `${userId}/${Date.now()}_${file.name}`;
+      uploadProgress.textContent = "Uploading...";
+
+      try {
+        const { data, error } = await supabase
+          .storage
+          .from("user-files")
+          .upload(filePath, file, { cacheControl: "3600", upsert: false });
+
+        if (error) throw error;
+        uploadProgress.textContent = "✅ Upload successful!";
+        fileInput.value = "";
+        await listUserFiles(userId);
+      } catch (err) {
+        console.error("Upload error:", err);
+        uploadProgress.textContent = "❌ Upload failed: " + (err.message || JSON.stringify(err));
+      }
+    });
+
+ 
+    async function listUserFiles(userId) {
+      filesList.innerHTML = "<em>Loading files...</em>";
+      try {
+        const { data, error } = await supabase
+          .storage
+          .from("user-files")
+          .list(`${userId}/`, { limit: 200 });
+
+        if (error) throw error;
+        if (!data || data.length === 0) {
+          filesList.innerHTML = "<p>No files uploaded yet.</p>";
+          return;
+        }
+
+        filesList.innerHTML = "";
+
+        for (const item of data) {
+  const filePath = `${userId}/${item.name}`;
+
+
+  const { data: signed } = await supabase
+    .storage
+    .from("user-files")
+    .createSignedUrl(filePath, 60 * 60);
+
+  const fileUrl = signed?.signedUrl || "#";
+
+  const div = document.createElement("div");
+  div.className = "file-row";
+  div.style.display = "flex";
+  div.style.justifyContent = "space-between";
+  div.style.alignItems = "center";
+  div.style.padding = "10px 12px";
+  div.style.borderBottom = "1px solid #eee";
+
+  const left = document.createElement("div");
+  left.className = "left";
+  left.innerHTML = `<strong>${escapeHtml(item.name)}</strong>`;
+
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  actions.style.display = "flex";
+  actions.style.gap = "10px";
+
+  const open = document.createElement("a");
+  open.href = fileUrl;
+  open.target = "_blank";
+  open.textContent = "Open";
+  open.style.textDecoration = "none";
+  open.style.color = "#1a73e8";
+  open.style.cursor = "pointer";
+
+  const del = document.createElement("button");
+  del.textContent = "Delete";
+  del.style.cursor = "pointer";
+  del.addEventListener("click", async () => {
+    if (!confirm(`Delete "${item.name}"?`)) return;
+    await deleteFile(filePath);
+  });
+
+  actions.appendChild(open);
+  actions.appendChild(del);
+
+  div.appendChild(left);
+  div.appendChild(actions);
+  filesList.appendChild(div);
+}
+
+
+      } catch (err) {
+        console.error("List files error:", err);
+        filesList.innerHTML = "<p>Error loading files.</p>";
+      }
+    }
+
+    async function deleteFile(filePath) {
+      try {
+        const { error } = await supabase.storage.from("user-files").remove([filePath]);
+        if (error) throw error;
+        if (currentUser) await listUserFiles(currentUser.uid);
+      } catch (err) {
+        console.error("Delete error:", err);
+        alert("Failed to delete file.");
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return str.replaceAll("&", "&amp;")
+                .replaceAll("<", "&lt;")
+                .replaceAll(">", "&gt;")
+                .replaceAll('"', "&quot;")
+                .replaceAll("'", "&#039;");
+    }
+  </script>
+</body>
+</html>
